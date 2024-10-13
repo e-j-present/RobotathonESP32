@@ -1,30 +1,27 @@
-/****************************************************************************
-Copyright 2021 Ricardo Quesada
+// Bare minimum code for spinning motors triggered by controller input
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+// Assumes servo is connected to pin 15
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-****************************************************************************/
+// Assumes motor controller IN1 and IN2 are connected to pins 14 and 12
 
 #include "sdkconfig.h"
 #ifndef CONFIG_BLUEPAD32_PLATFORM_ARDUINO
 #error "Must only be compiled when using Bluepad32 Arduino platform"
-#endif  // !CONFIG_BLUEPAD32_PLATFORM_ARDUINO
-
+#endif  !CONFIG_BLUEPAD32_PLATFORM_ARDUINO
 #include <Arduino.h>
 #include <Bluepad32.h>
-
 #include <ESP32Servo.h>
-#include <ESP32SharpIR.h>
-#include <QTRSensors.h>
+#include <bits/stdc++.h>
+
+
+#define IN1 12
+#define IN2 14
+
+// array containing the pin numbers for motors 
+int left_motor[2] = {12, 14}; 
+int right_motor[2] = {26, 27};
+
+Servo servo;
 
 GamepadPtr myGamepads[BP32_MAX_GAMEPADS];
 
@@ -51,33 +48,86 @@ void onDisconnectedGamepad(GamepadPtr gp) {
     }
 }
 
-// Arduino setup function. Runs in CPU 1
 void setup() {
-    // Setup the Bluepad32 callbacks
     BP32.setup(&onConnectedGamepad, &onDisconnectedGamepad);
     BP32.forgetBluetoothKeys();
+    
+    // getting the servo from pin 15
+    servo.attach(15);
 
-    ESP32PWM::allocateTimer(0);
-	ESP32PWM::allocateTimer(1);
-	ESP32PWM::allocateTimer(2);
-	ESP32PWM::allocateTimer(3);
+    // motor controller outputs
+    pinMode(left_motor[0], OUTPUT);
+    pinMode(left_motor[1], OUTPUT);
 
-    // TODO: Write your setup code here
+    pinMode(right_motor[0], OUTPUT);
+    pinMode(right_motor[1], OUTPUT);
+   
+    Serial.begin(115200);
 }
 
-// Arduino loop function. Runs in CPU 1
 void loop() {
     BP32.update();
-
     for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-        GamepadPtr myGamepad = myGamepads[i];
-        if (myGamepad && myGamepad->isConnected()) {
-            // TODO: Write your controller code here
+        GamepadPtr controller = myGamepads[i];
+        if (controller && controller->isConnected()) {
+           
+            if (controller->l1() == 1) {
+                Serial.print("Servo move");
+                servo.write(1000);
+            }
+            if (controller->l1() == 0) {
+                Serial.print("Servo stop");
+                servo.write(1500);
+            }
+            
+            // using the other joystick to control the other axis
+            if (controller->axisY() > 0){
+                Serial.println(" Right DC motor move");
+                digitalWrite(right_motor[0], LOW);
+                digitalWrite(right_motor[1], HIGH);
+            }
+
+            if (controller->axisY() < 0){
+                Serial.println(" Right DC motor move");
+                digitalWrite(right_motor[0], HIGH);
+                digitalWrite(right_motor[1], LOW);
+            }
+
+            if (controller->axisY() == 0){
+                Serial.println(" Right DC motor stopped move");
+                digitalWrite(right_motor[0], LOW);
+                digitalWrite(right_motor[1], LOW);
+            }
+
+            
+
+            if(controller->axisRY() > 0) { // negative y is upward on stick
+                Serial.println(" Left DC motor move");
+                digitalWrite(left_motor[0], LOW);
+                digitalWrite(left_motor[1], HIGH);
+            }
+            if (controller->axisRY() < 0){
+                Serial.println(" Left DC motor moving");
+                digitalWrite(left_motor[0], HIGH);
+                digitalWrite(left_motor[1], LOW);
+            }
+            if(controller->axisRY() == 0) { // stop motor 1
+                Serial.println(" Left DC motor stop");
+                digitalWrite(left_motor[0], LOW);
+                digitalWrite(left_motor[1], LOW);
+            }
+
+            if (controller->axisRX() > 0){
+                Serial.println("Moved axis right"); 
+            }
+
+
+            // PHYSICAL BUTTON A
+            if (controller->b()) {
+                Serial.println("button a pressed");
+            }
 
         }
+        vTaskDelay(1);
     }
-
-    // TODO: Write your periodic code here
-
-    vTaskDelay(1);
-}
+} 
