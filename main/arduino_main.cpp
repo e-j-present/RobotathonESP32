@@ -13,6 +13,7 @@
 #include <ESP32Servo.h>
 #include <bits/stdc++.h>
 #include <Arduino_APDS9960.h>
+#include <QTRSensors.h>
 
 
 #define IN1 12
@@ -24,11 +25,18 @@
 
 #define LED 2
 
+#define WHITELED 32
+
+#define FRONT_DISTANCE_SENSOR 25
+#define LEFT_DISTANCE_SENSOR 33
+#define RIGHT_DISTANCE_SENSOR 15
+
+
 
 
 
 // array containing the pin numbers for motors 
-int left_motor[2] = {12, 14}; 
+int left_motor[2] = {14, 12}; 
 int right_motor[2] = {26, 27};
 
 // red, green, blue
@@ -41,6 +49,8 @@ enum Color {
 };
 
 Servo servo;
+
+QTRSensors qtr;
 
 GamepadPtr myGamepads[BP32_MAX_GAMEPADS];
 
@@ -139,6 +149,78 @@ void colorLoop(){
     
 }
 
+void distanceLoop(){
+    Serial.println("Distance method starting");
+    delay(5000);
+
+    bool looping = true;
+    uint16_t sensorValues[3];
+    while(looping){
+        
+        qtr.read(sensorValues);
+        uint16_t front= sensorValues[0]; 
+        uint16_t left = sensorValues[1]; 
+        uint16_t right = sensorValues[2];
+
+
+        /*method goes here*/
+        // while the front distance sensor is less than 2500, go straight
+        if(front <= 2000){
+            Serial.println("Moving Forward"); 
+            digitalWrite(left_motor[0], HIGH); 
+            digitalWrite(left_motor[1], LOW); 
+            // analogWrite(left_motor[1], 100); 
+
+            digitalWrite(right_motor[0], HIGH); 
+            digitalWrite(right_motor[1], LOW);
+            // analogWrite(right_motor[1], 100); 
+        } 
+        
+        // spin right
+        else if (right <= 1000){
+            Serial.println("Spinning Right"); 
+            digitalWrite(right_motor[0], LOW); 
+            digitalWrite(right_motor[1], HIGH);
+            // analogWrite(right_motor[1], 100); 
+
+            
+
+            digitalWrite(left_motor[0], LOW); 
+            // analogWrite(left_motor[0], 100); 
+            digitalWrite(left_motor[1], LOW);
+        }
+        
+        // otherwise spin left
+        else{
+            Serial.println("Spinning Left"); 
+            digitalWrite(right_motor[0], HIGH); 
+            // analogWrite(right_motor[0], 100); 
+            digitalWrite(right_motor[1], LOW);
+
+            digitalWrite(left_motor[0], LOW); 
+            digitalWrite(left_motor[1], LOW);
+            // analogWrite(left_motor[1], 100); 
+        }
+
+
+
+
+        BP32.update();
+        for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+            GamepadPtr controller = myGamepads[i];
+            if (controller && controller->isConnected()) {
+        
+                // PHYSICAL BUTTON A
+                if (controller->y()) {
+                    looping = false;  
+                    Serial.println("ENDING DISTANCE METHOD"); 
+                }
+            }
+        }
+
+    }
+}
+
 // This callback gets called any time a new gamepad is connected.
 void onConnectedGamepad(GamepadPtr gp) {
     bool foundEmptySlot = false;
@@ -182,6 +264,11 @@ void setup() {
     I2C_0. begin(I2C_SDA, I2C_SCL, I2C_FREQ);
     sensor.setInterruptPin (APDS9960_INT);
     sensor.begin();
+
+    qtr.setTypeAnalog(); 
+    qtr.setSensorPins((const uint8_t[]){FRONT_DISTANCE_SENSOR, LEFT_DISTANCE_SENSOR, RIGHT_DISTANCE_SENSOR}, 3);
+
+    pinMode(WHITELED, OUTPUT); 
    
     Serial.begin(115200);
 }
@@ -249,7 +336,14 @@ void loop() {
                 colorLoop(); 
             }
 
+            // PHYSICAL BUTTON B
+            if (controller->a()){
+                Serial.println("A Pushed"); 
+                distanceLoop(); 
+            }
+
         }
+
     //     vTaskDelay(1);
     // }
 
@@ -275,6 +369,16 @@ void loop() {
 
     // gain is used to change sensitivity of sensor
     }
+
+    // uint16_t sensorValues[3];
+    // qtr.read(sensorValues);
+
+    // printf("Distance is: Front - %d, Left - %d, Right - %d\n", sensorValues[0], sensorValues[1], sensorValues[2]); 
+
+    // delay(500); 
+
+    // digitalWrite(WHITELED, HIGH);
+
 
 
 } 
