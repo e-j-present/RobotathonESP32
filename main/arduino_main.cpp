@@ -30,6 +30,8 @@
 #define FRONT_DISTANCE_SENSOR 25
 #define LEFT_DISTANCE_SENSOR 33
 #define RIGHT_DISTANCE_SENSOR 15
+#define SERVO_MIN_SPEED 70
+#define SERVO_MAX_SPEED 110
 
 
 
@@ -43,6 +45,7 @@ int right_motor[2] = {26, 27};
 int red_values[3] = {90, 20, 30};
 int green_values[3] = {30, 80, 50}; 
 int blue_values[3] = {10, 30, 40};
+int servo_pos = 90; 
 
 enum Color {
     RED, GREEN, BLUE, NO_COLOR = -1
@@ -249,7 +252,9 @@ void setup() {
     BP32.forgetBluetoothKeys();
     
     // getting the servo from pin 15
-    servo.attach(15);
+    servo.setPeriodHertz(50);
+    servo.attach(15, 1000, 2000);
+    servo.write(servo_pos);
 
     // motor controller outputs
     pinMode(left_motor[0], OUTPUT);
@@ -279,13 +284,38 @@ void loop() {
         GamepadPtr controller = myGamepads[i];
         if (controller && controller->isConnected()) {
            
+            //servo.write(1500);
+
             if (controller->l1() == 1) {
-                Serial.print("Servo move");
-                servo.write(1000);
+                Serial.printf("Servo move towards robot: %d\n", servo_pos);
+                servo_pos += 1; 
+                if (servo_pos > SERVO_MAX_SPEED){
+                    servo_pos = SERVO_MAX_SPEED; 
+                }
+                servo.write(servo_pos);
             }
-            if (controller->l1() == 0) {
-                // Serial.print("Servo stop");
-                servo.write(1500);
+
+            else if (controller->r1() == 1){
+                Serial.printf("Move servo towards ground: %d\n", servo_pos); 
+                servo_pos -= 1; 
+                if (servo_pos < SERVO_MIN_SPEED){
+                    servo_pos = SERVO_MIN_SPEED; 
+                }
+                servo.write(servo_pos);
+            } else{
+                Serial.printf("Not moving servo: %d\n", servo_pos);
+                if (servo_pos < 90){
+                    for(; servo_pos != 90; servo_pos += 1){
+                        servo.write(servo_pos); 
+                        delay(15); 
+                    }
+                }
+                else if (servo_pos > 90){
+                    for(; servo_pos != 90; servo_pos -= 1){
+                        servo.write(servo_pos); 
+                        delay(15); 
+                    }
+                }
             }
             
             // using the other joystick to control the other axis
@@ -378,6 +408,16 @@ void loop() {
     // delay(500); 
 
     // digitalWrite(WHITELED, HIGH);
+
+    // for (int pos = 0; pos <= 180; pos += 1){
+    //     servo.write(pos); 
+    //     delay(15);
+    // }
+    // for (int pos = 180; pos >= 0; pos -= 1){
+    //     servo.write(pos); 
+    //     delay(15);
+    // }
+    
 
 
 
