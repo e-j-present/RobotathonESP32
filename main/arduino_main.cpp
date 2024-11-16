@@ -19,8 +19,8 @@
 #define IN1 12
 #define IN2 14
 #define APDS9960_INT 0
-#define I2C_SDA 21
-#define I2C_SCL 22
+#define I2C_SDA 22
+#define I2C_SCL 21
 #define I2C_FREQ 100000
 
 #define LED 2
@@ -32,7 +32,7 @@
 #define RIGHT_DISTANCE_SENSOR 32
 #define SERVO_MIN_SPEED 70
 #define SERVO_MAX_SPEED 110
-
+//
 #define LED_PIN 13
 
 #define LEFT_LINE_SENSOR 36
@@ -91,7 +91,7 @@ void spin_left(){
 
     digitalWrite(left_motor[0], LOW); 
     digitalWrite(left_motor[1], LOW);
-    delay(325); 
+    delay(375); 
 }
 
 void spin_right(){
@@ -107,7 +107,7 @@ void spin_right(){
 
     digitalWrite(left_motor[0], LOW); 
     digitalWrite(left_motor[1], LOW);
-    delay(325); 
+    delay(375); 
 }
 void go_fowrward(){
     digitalWrite(left_motor[0], HIGH); 
@@ -118,10 +118,18 @@ void go_fowrward(){
     digitalWrite(right_motor[1], LOW);
 
 }
+void stop(){
+    digitalWrite(left_motor[0], LOW); 
+    digitalWrite(left_motor[1], LOW); 
+
+
+    digitalWrite(right_motor[0], LOW); 
+    digitalWrite(right_motor[1], LOW);
+
+}
 
 void distanceLoop(){
     Serial.println("Distance method starting");
-    delay(5000);
 
     bool looping = true;
     uint16_t sensorValues[3];
@@ -184,85 +192,32 @@ void colorLoop(){
         // Serial.println("Could not read a color, waiting for 5 seconds"); 
         delay (5);
     }
-    int r, g, b, a;
+    int starting_r, starting_g, starting_b;
     digitalWrite(LED_PIN, HIGH); 
-    sensor.readColor(r, g, b, a);
-    digitalWrite(LED_PIN, LOW); 
-    vTaskDelay(1);
+    sensor.readColor(starting_r, starting_g, starting_b);
+    delay(1000);
+    digitalWrite(LED_PIN, LOW);
+ 
+    Serial.printf("RED value %d, Green Value %d, Blue value %d\n", starting_r, starting_g, starting_b); 
 
-    // read the first color for the first time
-    Color color = NO_COLOR; 
-    Color reading_color = NO_COLOR; 
-
-
-    printf("RED value %d, Green Value %d, Blue value %d\n", r, g, b); 
-    // reading red color
-    if (r >= 40){
-        color = RED; 
-        for (int i = 0; i < 10; i ++){
-            digitalWrite(LED_PIN, HIGH); 
-            delay(200); 
-            digitalWrite(LED_PIN, LOW);
-            delay(200);  
-        }
+    int threshold = 15; 
+    int r, g, b;
+    sensor.readColor(r, g, b); 
+    while( (_abs(starting_r-r) <= threshold) && (_abs(starting_g-g) <= threshold) && (_abs(starting_b-b) <= threshold)){
+        go_fowrward();
     }
+    stop(); 
+    delay(1000); 
 
-    // reading green color
-    if (g >= 40){
-        color = GREEN; 
-    }
-
-    if (b >= 40){
-        color = BLUE; 
-    }
-
-    Serial.printf("Color is %d\n", color); 
-
-    bool looping = true;
-    if (color == NO_COLOR){
-        blink(200);
-        delay(200); 
-        blink(200); 
-        delay(1000); 
-        blink(200); 
-    }
-    while(looping && color != NO_COLOR){
-        digitalWrite(LED_PIN, HIGH); 
+    while (!((_abs(starting_r-r) <= threshold) && (_abs(starting_g-g) <= threshold) && (_abs(starting_b-b) <= threshold))){
         while(!sensor.colorAvailable()) {
             // Serial.println("Could not read a color, waiting for 5 seconds"); 
             delay (5);
         }
 
         go_fowrward(); 
-        delay(200); 
-        sensor.readColor(r, g, b, a);
-
-        // reading red
-        if (r >= 40){
-            reading_color = RED; 
-        }
-
-        // reading green color
-        if (g >= 40){
-            reading_color = GREEN; 
-        }
-
-        if (b >= 40){
-            reading_color = BLUE; 
-        }
-
-
-        if (reading_color == color){
-            digitalWrite(left_motor[0], LOW); 
-            digitalWrite(left_motor[1], LOW); 
-
-            digitalWrite(right_motor[0], LOW); 
-            digitalWrite(right_motor[1], LOW);
-
-            delay(3000); 
-            looping = false; 
-
-        }
+        sensor.readColor(r, g, b);
+        Serial.printf("RED value %d, Green Value %d, Blue value %d\n", r, g, b); 
 
         BP32.update();
         for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
@@ -271,16 +226,12 @@ void colorLoop(){
         
                 // PHYSICAL BUTTON A
                 if (controller->y()) {
-                    looping = false;  
                     Serial.println("ENDING COLOR METHOD"); 
+                    break; 
                 }
             }
         }
-        digitalWrite(LED_PIN, LOW); 
-        delay(200); 
-
     }
-    digitalWrite(LED_PIN, LOW); 
 
 
     
@@ -295,7 +246,8 @@ void line_loop() {
         uint16_t middle_line = sensor_line_values[1]; 
         uint16_t right_line = sensor_line_values[2];
         int16_t position = line_qtr.readLineBlack(sensor_line_values);
-
+        Serial.println(position);
+        // go_fowrward();
         if (position == 0){
             digitalWrite(LED_PIN, HIGH); 
         }
@@ -307,14 +259,14 @@ void line_loop() {
         // spin right
         else if (position < 300){
             // stopping
-            spin_right();
+            spin_left();
 
             //
         }
 
         // otherwise spin left
         else{
-            spin_left(); 
+            spin_right(); 
         }
 
         BP32.update();
@@ -404,7 +356,7 @@ void loop() {
             //servo.write(1500);
 
             if (controller->l1() == 1) {
-                Serial.printf("Servo move towards robot: %d\n", servo_pos);
+                // Serial.printf("Servo move towards robot: %d\n", servo_pos);
                 servo_pos += 1; 
                 if (servo_pos > SERVO_MAX_SPEED){
                     servo_pos = SERVO_MAX_SPEED; 
@@ -413,14 +365,14 @@ void loop() {
             }
 
             else if (controller->r1() == 1){
-                Serial.printf("Move servo towards ground: %d\n", servo_pos); 
+                // Serial.printf("Move servo towards ground: %d\n", servo_pos); 
                 servo_pos -= 1; 
                 if (servo_pos < SERVO_MIN_SPEED){
                     servo_pos = SERVO_MIN_SPEED; 
                 }
                 servo.write(servo_pos);
             } else{
-                Serial.printf("Not moving servo: %d\n", servo_pos);
+                // Serial.printf("Not moving servo: %d\n", servo_pos);
                 if (servo_pos < 90){
                     for(; servo_pos <= 90; servo_pos += 1){
                         servo.write(servo_pos); 
@@ -429,7 +381,7 @@ void loop() {
                 }
                 else if (servo_pos > 90){
                     for(; servo_pos >= 90; servo_pos -= 1){
-                        printf("Servo value: %d\n", servo.read()); 
+                        // printf("Servo value: %d\n", servo.read()); 
                         servo.write(servo_pos); 
                         delay(25); 
                     }
