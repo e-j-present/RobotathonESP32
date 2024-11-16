@@ -85,16 +85,17 @@ void spin_left(){
 
     
     digitalWrite(right_motor[0], LOW); 
-    digitalWrite(right_motor[1], HIGH);
+    digitalWrite(right_motor[1], LOW);
 
     
 
-    digitalWrite(left_motor[0], LOW); 
+    digitalWrite(left_motor[0], HIGH); 
     digitalWrite(left_motor[1], LOW);
-    delay(375); 
+    delay(700); 
 }
 
 void spin_right(){
+    //
     digitalWrite(right_motor[0], LOW); 
     digitalWrite(right_motor[1], LOW);
     digitalWrite(left_motor[0], LOW); 
@@ -107,7 +108,7 @@ void spin_right(){
 
     digitalWrite(left_motor[0], LOW); 
     digitalWrite(left_motor[1], LOW);
-    delay(375); 
+    delay(700); 
 }
 void go_fowrward(){
     digitalWrite(left_motor[0], HIGH); 
@@ -143,7 +144,7 @@ void distanceLoop(){
 
         /*method goes here*/
         // while the front distance sensor is less than 2500, go straight
-        if(front <= 2000){
+        if(front <= 2300){
             go_fowrward(); 
         } 
         
