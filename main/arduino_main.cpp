@@ -25,13 +25,15 @@
 
 #define LED 2
 
-#define WHITELED 32
+
 
 #define FRONT_DISTANCE_SENSOR 25
 #define LEFT_DISTANCE_SENSOR 33
-#define RIGHT_DISTANCE_SENSOR 15
+#define RIGHT_DISTANCE_SENSOR 32
 #define SERVO_MIN_SPEED 70
 #define SERVO_MAX_SPEED 110
+
+#define LED_PIN 13
 
 
 
@@ -42,9 +44,9 @@ int left_motor[2] = {14, 12};
 int right_motor[2] = {26, 27};
 
 // red, green, blue
-int red_values[3] = {90, 20, 30};
-int green_values[3] = {30, 80, 50}; 
-int blue_values[3] = {10, 30, 40};
+int red_values[3] = {10, 10, 10};
+int green_values[3] = {14, 10, 9}; 
+int blue_values[3] = {10, 15, 12};
 int servo_pos = 90; 
 
 enum Color {
@@ -68,13 +70,110 @@ void blink(uint32_t n){
     digitalWrite(LED, LOW);  
 }
 
+void spin_left(){
+    digitalWrite(right_motor[0], LOW);  
+    digitalWrite(right_motor[1], LOW);
+    digitalWrite(left_motor[0], LOW); 
+    digitalWrite(left_motor[1], LOW);
+    delay(500); 
+
+
+    
+    digitalWrite(right_motor[0], LOW); 
+    digitalWrite(right_motor[1], HIGH);
+
+    
+
+    digitalWrite(left_motor[0], LOW); 
+    digitalWrite(left_motor[1], LOW);
+    delay(325); 
+}
+
+void spin_right(){
+    digitalWrite(right_motor[0], LOW); 
+    digitalWrite(right_motor[1], LOW);
+    digitalWrite(left_motor[0], LOW); 
+    digitalWrite(left_motor[1], LOW);
+
+    delay(500); 
+
+    digitalWrite(right_motor[0], HIGH); 
+    digitalWrite(right_motor[1], LOW);
+
+    digitalWrite(left_motor[0], LOW); 
+    digitalWrite(left_motor[1], LOW);
+    delay(325); 
+}
+void go_fowrward(){
+    digitalWrite(left_motor[0], HIGH); 
+    digitalWrite(left_motor[1], LOW); 
+
+
+    digitalWrite(right_motor[0], HIGH); 
+    digitalWrite(right_motor[1], LOW);
+
+}
+
+void distanceLoop(){
+    Serial.println("Distance method starting");
+    delay(5000);
+
+    bool looping = true;
+    uint16_t sensorValues[3];
+    while(looping){
+        
+        qtr.read(sensorValues);
+        uint16_t front= sensorValues[0]; 
+        uint16_t left = sensorValues[1]; 
+        uint16_t right = sensorValues[2];
+
+
+        /*method goes here*/
+        // while the front distance sensor is less than 2500, go straight
+        if(front <= 2000){
+            go_fowrward(); 
+        } 
+        
+        // spin right
+        else if (right <= 1000){
+            // stopping
+            spin_right();  
+            
+            //
+        }
+        
+        // otherwise spin left
+        else{
+            spin_left(); 
+        }
+
+
+
+
+        BP32.update();
+        for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+            GamepadPtr controller = myGamepads[i];
+            if (controller && controller->isConnected()) {
+        
+                // PHYSICAL BUTTON A
+                if (controller->y()) {
+                    looping = false;  
+                    Serial.println("ENDING DISTANCE METHOD"); 
+                }
+            }
+        }
+
+    }
+}
+
 /**
  * Method reads a color and then blinks the on board led light if other colors match the first color
  * push A to start this method and X to stop this method (even though the code says B and Y)
  */
 void colorLoop(){
     Serial.println("Color Method starting"); 
-    delay(5000); 
+    blink(1000); 
+    delay(250); 
     
     while(!sensor.colorAvailable()) {
         // Serial.println("Could not read a color, waiting for 5 seconds"); 
@@ -102,6 +201,9 @@ void colorLoop(){
 
     if (r <= blue_values[0] && g <= blue_values[1] && b >= blue_values[2]){
         color = BLUE; 
+        for(int i = 0; i < 3; i ++){
+            blink(500); 
+        }
     }
 
     Serial.printf("Color is %d\n", color); 
@@ -113,6 +215,9 @@ void colorLoop(){
             delay (5);
         }
         sensor.readColor(r, g, b, a);
+
+        go_fowrward(); 
+        delay(200); 
 
         // reading red
         if (r >= red_values[0] && g <= red_values[1] && b <= red_values[2]){
@@ -130,8 +235,11 @@ void colorLoop(){
 
 
         if (reading_color == color){
-            Serial.println("Found Color"); 
-            blink(100); 
+            digitalWrite(left_motor[0], LOW); 
+            digitalWrite(left_motor[1], LOW); 
+
+            digitalWrite(right_motor[0], LOW); 
+            digitalWrite(right_motor[1], LOW);
         }
 
         BP32.update();
@@ -150,78 +258,6 @@ void colorLoop(){
     }
 
     
-}
-
-void distanceLoop(){
-    Serial.println("Distance method starting");
-    delay(5000);
-
-    bool looping = true;
-    uint16_t sensorValues[3];
-    while(looping){
-        
-        qtr.read(sensorValues);
-        uint16_t front= sensorValues[0]; 
-        uint16_t left = sensorValues[1]; 
-        uint16_t right = sensorValues[2];
-
-
-        /*method goes here*/
-        // while the front distance sensor is less than 2500, go straight
-        if(front <= 2000){
-            Serial.println("Moving Forward"); 
-            digitalWrite(left_motor[0], HIGH); 
-            digitalWrite(left_motor[1], LOW); 
-            // analogWrite(left_motor[1], 100); 
-
-            digitalWrite(right_motor[0], HIGH); 
-            digitalWrite(right_motor[1], LOW);
-            // analogWrite(right_motor[1], 100); 
-        } 
-        
-        // spin right
-        else if (right <= 1000){
-            Serial.println("Spinning Right"); 
-            digitalWrite(right_motor[0], LOW); 
-            digitalWrite(right_motor[1], HIGH);
-            // analogWrite(right_motor[1], 100); 
-
-            
-
-            digitalWrite(left_motor[0], LOW); 
-            // analogWrite(left_motor[0], 100); 
-            digitalWrite(left_motor[1], LOW);
-        }
-        
-        // otherwise spin left
-        else{
-            Serial.println("Spinning Left"); 
-            digitalWrite(right_motor[0], HIGH); 
-            // analogWrite(right_motor[0], 100); 
-            digitalWrite(right_motor[1], LOW);
-
-            digitalWrite(left_motor[0], LOW); 
-            digitalWrite(left_motor[1], LOW);
-            // analogWrite(left_motor[1], 100); 
-        }
-
-
-
-
-        BP32.update();
-        for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-            GamepadPtr controller = myGamepads[i];
-            if (controller && controller->isConnected()) {
-        
-                // PHYSICAL BUTTON A
-                if (controller->y()) {
-                    looping = false;  
-                    Serial.println("ENDING DISTANCE METHOD"); 
-                }
-            }
-        }
-
-    }
 }
 
 // This callback gets called any time a new gamepad is connected.
@@ -263,6 +299,8 @@ void setup() {
     pinMode(right_motor[0], OUTPUT);
     pinMode(right_motor[1], OUTPUT);
 
+    pinMode(LED_PIN, OUTPUT); 
+
     // on board led
     pinMode(LED, OUTPUT); 
 
@@ -273,7 +311,7 @@ void setup() {
     qtr.setTypeAnalog(); 
     qtr.setSensorPins((const uint8_t[]){FRONT_DISTANCE_SENSOR, LEFT_DISTANCE_SENSOR, RIGHT_DISTANCE_SENSOR}, 3);
 
-    pinMode(WHITELED, OUTPUT); 
+
    
     Serial.begin(115200);
 }
@@ -305,15 +343,16 @@ void loop() {
             } else{
                 Serial.printf("Not moving servo: %d\n", servo_pos);
                 if (servo_pos < 90){
-                    for(; servo_pos != 90; servo_pos += 1){
+                    for(; servo_pos <= 90; servo_pos += 1){
                         servo.write(servo_pos); 
-                        delay(15); 
+                        delay(25); 
                     }
                 }
                 else if (servo_pos > 90){
-                    for(; servo_pos != 90; servo_pos -= 1){
+                    for(; servo_pos >= 90; servo_pos -= 1){
+                        printf("Servo value: %d\n", servo.read()); 
                         servo.write(servo_pos); 
-                        delay(15); 
+                        delay(25); 
                     }
                 }
             }
@@ -363,6 +402,7 @@ void loop() {
             // PHYSICAL BUTTON A
             if (controller->b()) {
                 Serial.println("B pushed");
+                blink(1000); 
                 colorLoop(); 
             }
 
@@ -418,7 +458,10 @@ void loop() {
     //     delay(15);
     // }
     
-
+    // digitalWrite(LED_PIN, HIGH); 
+    // delay(500);
+    // colorLoop(); 
+    // digitalWrite(LED_PIN, LOW); 
 
 
 } 
