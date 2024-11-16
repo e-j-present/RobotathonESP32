@@ -35,6 +35,10 @@
 
 #define LED_PIN 13
 
+#define LEFT_LINE_SENSOR 36
+#define MIDDLE_LINE_SENSOR 39
+#define RIGHT_LINE_SENSOR 34
+
 
 
 
@@ -56,6 +60,7 @@ enum Color {
 Servo servo;
 
 QTRSensors qtr;
+QTRSensors line_qtr;
 
 GamepadPtr myGamepads[BP32_MAX_GAMEPADS];
 
@@ -172,7 +177,7 @@ void distanceLoop(){
  */
 void colorLoop(){
     Serial.println("Color Method starting"); 
-    blink(1000); 
+    
     delay(250); 
     
     while(!sensor.colorAvailable()) {
@@ -180,7 +185,9 @@ void colorLoop(){
         delay (5);
     }
     int r, g, b, a;
+    digitalWrite(LED_PIN, HIGH); 
     sensor.readColor(r, g, b, a);
+    digitalWrite(LED_PIN, LOW); 
     vTaskDelay(1);
 
     // read the first color for the first time
@@ -190,46 +197,57 @@ void colorLoop(){
 
     printf("RED value %d, Green Value %d, Blue value %d\n", r, g, b); 
     // reading red color
-    if (r >= red_values[0] && g <= red_values[1] && b <= red_values[2]){
+    if (r >= 40){
         color = RED; 
+        for (int i = 0; i < 10; i ++){
+            digitalWrite(LED_PIN, HIGH); 
+            delay(200); 
+            digitalWrite(LED_PIN, LOW);
+            delay(200);  
+        }
     }
 
     // reading green color
-    if (r <= green_values[0] && g >= green_values[1] && b <= green_values[2]){
+    if (g >= 40){
         color = GREEN; 
     }
 
-    if (r <= blue_values[0] && g <= blue_values[1] && b >= blue_values[2]){
+    if (b >= 40){
         color = BLUE; 
-        for(int i = 0; i < 3; i ++){
-            blink(500); 
-        }
     }
 
     Serial.printf("Color is %d\n", color); 
 
     bool looping = true;
+    if (color == NO_COLOR){
+        blink(200);
+        delay(200); 
+        blink(200); 
+        delay(1000); 
+        blink(200); 
+    }
     while(looping && color != NO_COLOR){
+        digitalWrite(LED_PIN, HIGH); 
         while(!sensor.colorAvailable()) {
             // Serial.println("Could not read a color, waiting for 5 seconds"); 
             delay (5);
         }
-        sensor.readColor(r, g, b, a);
 
         go_fowrward(); 
         delay(200); 
+        sensor.readColor(r, g, b, a);
 
         // reading red
-        if (r >= red_values[0] && g <= red_values[1] && b <= red_values[2]){
+        if (r >= 40){
             reading_color = RED; 
         }
 
         // reading green color
-        if (r <= green_values[0] && g >= green_values[1] && b <= green_values[2]){
+        if (g >= 40){
             reading_color = GREEN; 
         }
 
-        if (r <= blue_values[0] && g <= blue_values[1] && b >= blue_values[2]){
+        if (b >= 40){
             reading_color = BLUE; 
         }
 
@@ -240,6 +258,10 @@ void colorLoop(){
 
             digitalWrite(right_motor[0], LOW); 
             digitalWrite(right_motor[1], LOW);
+
+            delay(3000); 
+            looping = false; 
+
         }
 
         BP32.update();
@@ -254,10 +276,58 @@ void colorLoop(){
                 }
             }
         }
+        digitalWrite(LED_PIN, LOW); 
+        delay(200); 
 
     }
+    digitalWrite(LED_PIN, LOW); 
+
 
     
+}
+
+void line_loop() {
+    bool looping = true;
+    while (looping) {
+        uint16_t sensor_line_values[3];
+        line_qtr.read(sensor_line_values);
+        uint16_t left_line = sensor_line_values[0]; 
+        uint16_t middle_line = sensor_line_values[1]; 
+        uint16_t right_line = sensor_line_values[2];
+        int16_t position = line_qtr.readLineBlack(sensor_line_values);
+
+        if (position == 0){
+            digitalWrite(LED_PIN, HIGH); 
+        }
+
+        if(position >= 300 && position <= 1700){
+            go_fowrward(); 
+        } 
+
+        // spin right
+        else if (position < 300){
+            // stopping
+            spin_right();
+
+            //
+        }
+
+        // otherwise spin left
+        else{
+            spin_left(); 
+        }
+
+        BP32.update();
+        for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+            GamepadPtr controller = myGamepads[i];
+            if (controller && controller->isConnected()) {
+                if (controller->y()) {
+                    looping = false;
+                    Serial.println("ENDING LINE METHOD");
+                }
+            }
+        }
+    }
 }
 
 // This callback gets called any time a new gamepad is connected.
@@ -310,6 +380,15 @@ void setup() {
 
     qtr.setTypeAnalog(); 
     qtr.setSensorPins((const uint8_t[]){FRONT_DISTANCE_SENSOR, LEFT_DISTANCE_SENSOR, RIGHT_DISTANCE_SENSOR}, 3);
+
+
+    line_qtr.setTypeAnalog();
+    line_qtr.setSensorPins((const uint8_t[]){LEFT_LINE_SENSOR, MIDDLE_LINE_SENSOR, RIGHT_LINE_SENSOR}, 3);
+    for (uint8_t i = 0; i < 250; i++) {
+        // Serial.println("calibrating");
+        line_qtr.calibrate();
+        delay(20);
+    }
 
 
    
@@ -398,7 +477,6 @@ void loop() {
                 Serial.println("Moved axis right"); 
             }
 
-
             // PHYSICAL BUTTON A
             if (controller->b()) {
                 Serial.println("B pushed");
@@ -410,6 +488,12 @@ void loop() {
             if (controller->a()){
                 Serial.println("A Pushed"); 
                 distanceLoop(); 
+            }
+
+            // PHYSICAL BUTTON Y
+            if (controller->x()) {
+                Serial.println("X Pushed");
+                line_loop();
             }
 
         }
